@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<div class="chat-container">
+    <div class="chat-header">
+        <div class="header-info">
+            <h1>Chat Room</h1>
+            <span id="userCount" class="user-count">0 users online</span>
+        </div>
+        <button id="logout" class="btn btn-secondary">Logout</button>
+    </div>
+
+    <div class="chat-messages" id="messages">
+        <div class="welcome-message">
+            <p>Welcome to the chat! Start a conversation below.</p>
+        </div>
+    </div>
+
+    <div class="chat-input">
+        <form id="messageForm">
+            <input type="text" id="messageInput" placeholder="Type your message..." required maxlength="1000">
+            <button type="submit" class="btn btn-primary">Send</button>
+        </form>
+    </div>
+</div>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>

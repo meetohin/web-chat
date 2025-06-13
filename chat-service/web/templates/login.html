@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Chat App</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<div class="container">
+    <div class="auth-card">
+        <h1>Welcome Back</h1>
+        <p class="subtitle">Sign in to continue chatting</p>
+        <form id="loginForm">
+            <div class="form-group">
+                <input type="text" id="username" name="username" placeholder="Username" required>
+            </div>
+            <div class="form-group">
+                <input type="password" id="password" name="password" placeholder="Password" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Login</button>
+        </form>
+        <p class="auth-link">
+            Don't have an account? <a href="/register">Register here</a>
+        </p>
+        <div id="error" class="error"></div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const errorDiv = document.getElementById('error');
+        errorDiv.textContent = '';
+
+        const formData = new FormData(e.target);
+
+        try {
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                localStorage.setItem('token', data.token);
+                window.location.href = '/chat';
+            } else {
+                const errorText = await response.text();
+                errorDiv.textContent = errorText || 'Invalid credentials';
+            }
+        } catch (error) {
+            errorDiv.textContent = 'Network error. Please try again.';
+        }
+    });
+</script>
+</body>
+</html>
