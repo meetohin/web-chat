@@ -3,6 +3,7 @@ module github.com/meetohin/web-chat/chat-service
 go 1.24.4
 
 require (
+	github.com/gorilla/websocket v1.5.3
 	github.com/meetohin/web-chat/auth-service v0.0.0-20250613165258-63b21c662387
 	google.golang.org/grpc v1.73.0
 )
