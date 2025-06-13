@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"github.com/gorilla/websocket"
 	"github.com/meetohin/web-chat/chat-service/internal/client"
-	"github.com/meetohin/web-chat/chat-service/internal/repository"
+	"github.com/meetohin/web-chat/chat-service/internal/database"
 	"log"
 	"net/http"
 	"sync"
@@ -25,7 +25,7 @@ type Client struct {
 
 type ChatService struct {
 	authClient  *client.AuthClient
-	messageRepo *repository.MessageRepository
+	messageRepo *database.MessageRepository
 	clients     map[*Client]bool
 	broadcast   chan []byte
 	register    chan *Client
@@ -33,7 +33,7 @@ type ChatService struct {
 	mu          sync.RWMutex
 }
 
-func NewChatService(authClient *client.AuthClient, messageRepo *repository.MessageRepository) *ChatService {
+func NewChatService(authClient *client.AuthClient, messageRepo *database.MessageRepository) *ChatService {
 	return &ChatService{
 		authClient:  authClient,
 		messageRepo: messageRepo,

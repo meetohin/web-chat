@@ -2,8 +2,8 @@ package main
 
 import (
 	"github.com/meetohin/web-chat/chat-service/internal/client"
+	"github.com/meetohin/web-chat/chat-service/internal/database"
 	"github.com/meetohin/web-chat/chat-service/internal/handler"
-	"github.com/meetohin/web-chat/chat-service/internal/repository"
 	"github.com/meetohin/web-chat/chat-service/internal/service"
 	"log"
 	"net/http"
@@ -21,7 +21,7 @@ func main() {
 	defer authClient.Close()
 
 	// Init repo and service
-	messageRepo := repository.NewMessageRepository()
+	messageRepo := database.NewMessageRepository()
 	chatService := service.NewChatService(authClient, messageRepo)
 	chatHandler := handler.NewChatHandler(authClient, chatService)
 
