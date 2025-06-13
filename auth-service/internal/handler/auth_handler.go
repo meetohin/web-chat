@@ -18,6 +18,10 @@ func NewAuthHandler(authService *service.AuthService) *AuthHandler {
 }
 
 func (h *AuthHandler) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+
 	err := h.authService.Register(req.Username, req.Password)
 	if err != nil {
 		return &pb.RegisterResponse{
@@ -33,6 +37,10 @@ func (h *AuthHandler) Register(ctx context.Context, req *pb.RegisterRequest) (*p
 }
 
 func (h *AuthHandler) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+
 	token, err := h.authService.Login(req.Username, req.Password)
 	if err != nil {
 		return &pb.LoginResponse{
@@ -49,6 +57,10 @@ func (h *AuthHandler) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Logi
 }
 
 func (h *AuthHandler) ValidateToken(ctx context.Context, req *pb.ValidateTokenRequest) (*pb.ValidateTokenResponse, error) {
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+
 	username, err := h.authService.ValidateToken(req.Token)
 	if err != nil {
 		return &pb.ValidateTokenResponse{
