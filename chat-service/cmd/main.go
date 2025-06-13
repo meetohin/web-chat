@@ -13,8 +13,12 @@ import (
 )
 
 func main() {
+	authServiceURL := os.Getenv("AUTH_SERVICE_URL")
+	if authServiceURL == "" {
+		authServiceURL = "auth-service:50051"
+	}
 	// Init client of authorization
-	authClient, err := client.NewAuthClient("localhost:50051")
+	authClient, err := client.NewAuthClient(authServiceURL)
 	if err != nil {
 		log.Fatalf("Failed to connect to auth service: %v", err)
 	}
