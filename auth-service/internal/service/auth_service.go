@@ -4,10 +4,11 @@ import (
 	"errors"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/meetohin/web-chat/auth-service/internal/repository"
+	"os"
 	"time"
 )
 
-var jwtSecret = []byte("your-secret-key") // TODO: env
+var jwtSecret = []byte(os.Getenv("JWT_SECRET")) // TODO: env
 
 type AuthService struct {
 	userRepo *repository.UserRepository
