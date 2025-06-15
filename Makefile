@@ -2,8 +2,9 @@ DOCKER_REGISTRY ?= localhost:5000
 PROJECT_NAME = web-chat
 VERSION ?= latest
 
-AUTH_IMAGE = $(DOCKER_REGISTRY)/$(PROJECT_NAME)-auth:$(VERSION)
-CHAT_IMAGE = $(DOCKER_REGISTRY)/$(PROJECT_NAME)-chat:$(VERSION)
+AUTH_IMAGE = $(DOCKER_REGISTRY)/auth:$(VERSION)
+CHAT_IMAGE = $(DOCKER_REGISTRY)/chat:$(VERSION)
+NOTIFICATION_IMAGE = $(DOCKER_REGISTRY)/notification:$(VERSION)
 
 .PHONY: help build-auth build-chat build-all push-auth push-chat push-all docker-up docker-down docker-logs cleandoc test
 
@@ -31,7 +32,11 @@ build-chat:
 	@echo "Сборка chat-service образа..."
 	docker build -t $(CHAT_IMAGE) ./chat-service
 
-build-all: build-auth build-chat
+build-notification:
+	@echo "Сборка chat-notification образа..."
+	docker build -t $(NOTIFICATION_IMAGE) ./chat-notification
+
+build-all: build-auth build-chat build-notification
 	@echo "Все образы собраны успешно!"
 
 # Push images to registry
@@ -43,24 +48,28 @@ push-chat: build-chat
 	@echo "Отправка chat-service образа в registry..."
 	docker push $(CHAT_IMAGE)
 
-push-all: push-auth push-chat
+push-notification: build-notification
+	@echo "Отправка chat-service образа в registry..."
+	docker push $(NOTIFICATION_IMAGE)
+
+push-all: push-auth push-chat push-notification
 	@echo "Все образы отправлены в registry!"
 
 # Docker Compose commands
-docker-up:
+up:
 	@echo "Запуск сервисов через Docker Compose..."
 	docker-compose up -d
 	@echo "Сервисы запущены! Веб-интерфейс доступен на http://localhost:8080"
 
-docker-down:
+down:
 	@echo "Остановка сервисов Docker Compose..."
 	docker-compose down
 
-docker-logs:
+logs:
 	@echo "Показ логов всех сервисов..."
 	docker-compose logs -f
 
-docker-restart: docker-down docker-up
+restart: docker-down docker-up
 
 # Cleaning
 clean:

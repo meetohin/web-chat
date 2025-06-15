@@ -3,69 +3,90 @@ version: '3.8'
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: db-postgres
     environment:
-      POSTGRES_DB: webchat
-      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres_user
       POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-    networks:
-      - webchat-network
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      test: ["CMD-SHELL", "pg_isready -U postgres_user -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   auth-service:
     build:
       context: ./auth-service
       dockerfile: Dockerfile
-    container_name: auth
     environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_NAME=webchat
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - JWT_SECRET=your-secret-key-change-in-production
-    ports:
-      - "50051:50051"
+      - DATABASE_URL=postgres://postgres_user:postgres@postgres:5432/postgres?sslmode=disable
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRY=24h
+      - LOG_LEVEL=debug
     depends_on:
       postgres:
         condition: service_healthy
-    networks:
-      - webchat-network
+    ports:
+      - "50051:50051"
+    restart: unless-stopped
+
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgres://postgres_user:postgres@postgres:5432/postgres?sslmode=disable
+      - REDIS_URL=redis://redis:6379/1
+      - WORKERS=2
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
   chat-service:
     build:
       context: ./chat-service
       dockerfile: Dockerfile
-    container_name: chat
     environment:
+      - DATABASE_URL=postgres://postgres_user:postgres@postgres:5432/postgres?sslmode=disable
+      - REDIS_URL=redis://redis:6379/1
       - AUTH_SERVICE_URL=auth-service:50051
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_NAME=webchat
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+      notification-service:
+        condition: service_started
     ports:
       - "8080:8080"
-    depends_on:
-      - auth-service
-      - postgres
-    networks:
-      - webchat-network
     restart: unless-stopped
 
 volumes:
   postgres_data:
+  redis_data:
 
 networks:
-  webchat-network:
-    driver: bridge
+  default:
+    name: webchat-network
