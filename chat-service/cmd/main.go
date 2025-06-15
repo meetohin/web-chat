@@ -1,38 +1,44 @@
 package main
 
 import (
-	"github.com/meetohin/web-chat/chat-service/internal/client"
-	"github.com/meetohin/web-chat/chat-service/internal/database"
-	"github.com/meetohin/web-chat/chat-service/internal/handler"
-	"github.com/meetohin/web-chat/chat-service/internal/service"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/meetohin/web-chat/chat-service/internal/client"
+	"github.com/meetohin/web-chat/chat-service/internal/database"
+	"github.com/meetohin/web-chat/chat-service/internal/handler"
+	"github.com/meetohin/web-chat/chat-service/internal/service"
 )
 
 func main() {
-	authServiceURL := os.Getenv("AUTH_SERVICE_URL")
-	if authServiceURL == "" {
-		authServiceURL = "auth-service:50051"
-	}
-	// Init client of authorization
-	authClient, err := client.NewAuthClient(authServiceURL)
+	// Auth client
+	authClient, err := client.NewAuthClient("localhost:50051")
 	if err != nil {
 		log.Fatalf("Failed to connect to auth service: %v", err)
 	}
 	defer authClient.Close()
 
-	// Init repo and service
+	// Message repository
 	messageRepo := database.NewMessageRepository()
-	chatService := service.NewChatService(authClient, messageRepo)
+
+	// Chat service with notification
+	redisURL := getEnv("REDIS_URL", "redis://localhost:6379/1")
+	chatService, err := service.NewChatService(authClient, messageRepo, redisURL)
+	if err != nil {
+		log.Fatalf("Failed to create chat service: %v", err)
+	}
+	defer chatService.Close()
+
+	// Handlers
 	chatHandler := handler.NewChatHandler(authClient, chatService)
 
-	// Run chat service
+	// Start chat service
 	go chatService.Run()
 
-	// Configure routers
+	// Routs
 	http.HandleFunc("/", chatHandler.LoginPage)
 	http.HandleFunc("/login", chatHandler.LoginPage)
 	http.HandleFunc("/register", chatHandler.RegisterPage)
@@ -51,11 +57,17 @@ func main() {
 		log.Fatal(http.ListenAndServe(":8080", nil))
 	}()
 
-	// Waiting for stopping signal
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
 	log.Println("Shutting down chat service...")
 	log.Println("Chat service stopped")
+}
+
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
 }
