@@ -32,6 +32,9 @@ func (r *Repository) Close() error {
 }
 
 func (r *Repository) CreateNotification(ctx context.Context, req *model.NotificationRequest) (*model.Notification, error) {
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	notification := &model.Notification{
 		ID:        uuid.New().String(),
 		UserID:    req.UserID,
@@ -60,6 +63,9 @@ func (r *Repository) CreateNotification(ctx context.Context, req *model.Notifica
 }
 
 func (r *Repository) GetUserNotifications(ctx context.Context, userID string, limit int) ([]*model.Notification, error) {
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	query := `
         SELECT id, user_id, title, message, type, is_read, created_at
         FROM notifications 
@@ -95,6 +101,10 @@ func (r *Repository) GetUserNotifications(ctx context.Context, userID string, li
 }
 
 func (r *Repository) MarkAsRead(ctx context.Context, userID string, notificationIDs []string) error {
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
 	if len(notificationIDs) == 0 {
 		return nil
 	}
