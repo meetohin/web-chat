@@ -3,45 +3,57 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"github.com/gorilla/websocket"
-	"github.com/meetohin/web-chat/chat-service/internal/client"
-	"github.com/meetohin/web-chat/chat-service/internal/database"
+	"fmt"
 	"log"
 	"net/http"
 	"sync"
+	"time"
+
+	"github.com/gorilla/websocket"
+	"github.com/meetohin/web-chat/chat-service/internal/client"
+	"github.com/meetohin/web-chat/chat-service/internal/database"
 )
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
-		return true // В продакшене нужна более строгая проверка
+		return true
 	},
 }
 
 type Client struct {
-	conn     *websocket.Conn
-	username string
-	send     chan []byte
+	conn               *websocket.Conn
+	username           string
+	userID             string
+	send               chan []byte
+	notificationCancel context.CancelFunc // для отмены подписки на уведомления
 }
 
 type ChatService struct {
-	authClient  *client.AuthClient
-	messageRepo *database.MessageRepository
-	clients     map[*Client]bool
-	broadcast   chan []byte
-	register    chan *Client
-	unregister  chan *Client
-	mu          sync.RWMutex
+	authClient         *client.AuthClient
+	messageRepo        *database.MessageRepository
+	notificationClient *NotificationClient // добавили клиент уведомлений
+	clients            map[*Client]bool
+	broadcast          chan []byte
+	register           chan *Client
+	unregister         chan *Client
+	mu                 sync.RWMutex
 }
 
-func NewChatService(authClient *client.AuthClient, messageRepo *database.MessageRepository) *ChatService {
-	return &ChatService{
-		authClient:  authClient,
-		messageRepo: messageRepo,
-		clients:     make(map[*Client]bool),
-		broadcast:   make(chan []byte),
-		register:    make(chan *Client),
-		unregister:  make(chan *Client),
+func NewChatService(authClient *client.AuthClient, messageRepo *database.MessageRepository, redisURL string) (*ChatService, error) {
+	notificationClient, err := NewNotificationClient(redisURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create notification client: %w", err)
 	}
+
+	return &ChatService{
+		authClient:         authClient,
+		messageRepo:        messageRepo,
+		notificationClient: notificationClient,
+		clients:            make(map[*Client]bool),
+		broadcast:          make(chan []byte),
+		register:           make(chan *Client),
+		unregister:         make(chan *Client),
+	}, nil
 }
 
 func (cs *ChatService) Run() {
@@ -51,6 +63,9 @@ func (cs *ChatService) Run() {
 			cs.mu.Lock()
 			cs.clients[client] = true
 			cs.mu.Unlock()
+
+			cs.startNotificationSubscription(client)
+
 			log.Printf("Client %s connected. Total clients: %d", client.username, len(cs.clients))
 
 		case client := <-cs.unregister:
@@ -58,6 +73,10 @@ func (cs *ChatService) Run() {
 			if _, ok := cs.clients[client]; ok {
 				delete(cs.clients, client)
 				close(client.send)
+
+				if client.notificationCancel != nil {
+					client.notificationCancel()
+				}
 			}
 			cs.mu.Unlock()
 			log.Printf("Client %s disconnected. Total clients: %d", client.username, len(cs.clients))
@@ -70,11 +89,27 @@ func (cs *ChatService) Run() {
 				default:
 					close(client.send)
 					delete(cs.clients, client)
+					if client.notificationCancel != nil {
+						client.notificationCancel()
+					}
 				}
 			}
 			cs.mu.RUnlock()
 		}
 	}
+}
+
+func (cs *ChatService) startNotificationSubscription(client *Client) {
+	ctx, cancel := context.WithCancel(context.Background())
+	client.notificationCancel = cancel
+
+	go cs.notificationClient.SubscribeToNotifications(ctx, client.userID, func(data []byte) {
+		select {
+		case client.send <- data:
+		default:
+			cs.unregister <- client
+		}
+	})
 }
 
 func (cs *ChatService) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
@@ -99,12 +134,12 @@ func (cs *ChatService) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	client := &Client{
 		conn:     conn,
 		username: username,
+		userID:   username,
 		send:     make(chan []byte, 256),
 	}
 
 	cs.register <- client
 
-	// Отправляем последние сообщения новому клиенту
 	recentMessages := cs.messageRepo.GetRecentMessages(50)
 	for _, msg := range recentMessages {
 		msgJSON, _ := json.Marshal(msg)
@@ -141,7 +176,6 @@ func (cs *ChatService) readPump(client *Client) {
 			continue
 		}
 
-		// Простая валидация сообщения
 		if len(text) > 1000 {
 			text = text[:1000]
 		}
@@ -149,7 +183,45 @@ func (cs *ChatService) readPump(client *Client) {
 		message := cs.messageRepo.SaveMessage(client.username, text)
 		messageJSON, _ := json.Marshal(message)
 		cs.broadcast <- messageJSON
+
+		go cs.sendNotificationToOthers(client.username, text)
 	}
+}
+
+func (cs *ChatService) sendNotificationToOthers(senderUsername, messageText string) {
+	cs.mu.RLock()
+	var recipients []string
+	for client := range cs.clients {
+		if client.username != senderUsername {
+			recipients = append(recipients, client.userID)
+		}
+	}
+	cs.mu.RUnlock()
+
+	for _, userID := range recipients {
+		notification := NotificationRequest{
+			UserID:  userID,
+			Title:   fmt.Sprintf("New message from %s", senderUsername),
+			Message: cs.truncateMessage(messageText, 100),
+			Type:    "message",
+		}
+
+		go func(notif NotificationRequest) {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			if err := cs.notificationClient.SendNotification(ctx, notif); err != nil {
+				log.Printf("Failed to send notification: %v", err)
+			}
+		}(notification)
+	}
+}
+
+func (cs *ChatService) truncateMessage(text string, maxLength int) string {
+	if len(text) <= maxLength {
+		return text
+	}
+	return text[:maxLength-3] + "..."
 }
 
 func (cs *ChatService) writePump(client *Client) {
@@ -162,7 +234,11 @@ func (cs *ChatService) writePump(client *Client) {
 				client.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
-			client.conn.WriteMessage(websocket.TextMessage, message)
+
+			if err := client.conn.WriteMessage(websocket.TextMessage, message); err != nil {
+				log.Printf("WebSocket write error: %v", err)
+				return
+			}
 		}
 	}
 }
@@ -175,4 +251,8 @@ func (cs *ChatService) GetStats() map[string]interface{} {
 		"connected_clients": len(cs.clients),
 		"total_messages":    cs.messageRepo.GetMessageCount(),
 	}
+}
+
+func (cs *ChatService) Close() error {
+	return cs.notificationClient.Close()
 }
