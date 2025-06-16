@@ -1,19 +1,23 @@
-package database
+package repository
 
 import (
 	"database/sql"
-	_ "github.com/lib/pq"
 	"time"
+
+	_ "github.com/lib/pq"
 )
 
+// PostgreSQLMessageRepository implements MessageRepository interface
 type PostgreSQLMessageRepository struct {
 	db *sql.DB
 }
 
-func NewPostgreSQLMessageRepository(db *sql.DB) *PostgreSQLMessageRepository {
+// NewPostgreSQLMessageRepository creates a new PostgreSQL message repository
+func NewPostgreSQLMessageRepository(db *sql.DB) MessageRepository {
 	return &PostgreSQLMessageRepository{db: db}
 }
 
+// SaveMessage saves a new message to the database
 func (r *PostgreSQLMessageRepository) SaveMessage(username, text string) (*Message, error) {
 	message := &Message{
 		Username:  username,
@@ -33,6 +37,7 @@ func (r *PostgreSQLMessageRepository) SaveMessage(username, text string) (*Messa
 	return message, nil
 }
 
+// GetRecentMessages retrieves recent messages from the database
 func (r *PostgreSQLMessageRepository) GetRecentMessages(limit int) ([]Message, error) {
 	rows, err := r.db.Query(
 		"SELECT id, username, text, created_at FROM messages ORDER BY created_at DESC LIMIT $1",
@@ -53,7 +58,7 @@ func (r *PostgreSQLMessageRepository) GetRecentMessages(limit int) ([]Message, e
 		messages = append(messages, msg)
 	}
 
-	// Разворачиваем, чтобы старые сообщения были вначале
+	// Reverse to show older messages first
 	for i := 0; i < len(messages)/2; i++ {
 		j := len(messages) - i - 1
 		messages[i], messages[j] = messages[j], messages[i]
@@ -62,13 +67,14 @@ func (r *PostgreSQLMessageRepository) GetRecentMessages(limit int) ([]Message, e
 	return messages, nil
 }
 
+// GetMessageCount returns the total number of messages
 func (r *PostgreSQLMessageRepository) GetMessageCount() (int, error) {
 	var count int
 	err := r.db.QueryRow("SELECT COUNT(*) FROM messages").Scan(&count)
 	return count, err
 }
 
-// Инициализация схемы БД
+// CreateTables initializes the database schema
 func (r *PostgreSQLMessageRepository) CreateTables() error {
 	query := `
     CREATE TABLE IF NOT EXISTS messages (

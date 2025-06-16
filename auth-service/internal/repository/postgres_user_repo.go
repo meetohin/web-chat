@@ -3,20 +3,24 @@ package repository
 import (
 	"database/sql"
 	"errors"
+
 	_ "github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 )
 
+// PostgreSQLUserRepository implements UserRepository interface
 type PostgreSQLUserRepository struct {
 	db *sql.DB
 }
 
-func NewPostgreSQLUserRepository(db *sql.DB) *PostgreSQLUserRepository {
+// NewPostgreSQLUserRepository creates a new PostgreSQL user repository
+func NewPostgreSQLUserRepository(db *sql.DB) UserRepository {
 	return &PostgreSQLUserRepository{db: db}
 }
 
+// CreateUser creates a new user in the repository
 func (r *PostgreSQLUserRepository) CreateUser(username, password string) error {
-	// Проверка существования пользователя
+	// Check if user already exists
 	var exists bool
 	err := r.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)", username).Scan(&exists)
 	if err != nil {
@@ -26,13 +30,13 @@ func (r *PostgreSQLUserRepository) CreateUser(username, password string) error {
 		return errors.New("user already exists")
 	}
 
-	// Хеширование пароля
+	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
 
-	// Вставка пользователя
+	// Insert user
 	_, err = r.db.Exec(
 		"INSERT INTO users (username, password, created_at) VALUES ($1, $2, NOW())",
 		username, string(hashedPassword),
@@ -40,6 +44,7 @@ func (r *PostgreSQLUserRepository) CreateUser(username, password string) error {
 	return err
 }
 
+// GetUser retrieves a user by username
 func (r *PostgreSQLUserRepository) GetUser(username string) (*User, error) {
 	user := &User{}
 	err := r.db.QueryRow(
@@ -57,6 +62,7 @@ func (r *PostgreSQLUserRepository) GetUser(username string) (*User, error) {
 	return user, nil
 }
 
+// ValidatePassword validates a user's password
 func (r *PostgreSQLUserRepository) ValidatePassword(username, password string) bool {
 	user, err := r.GetUser(username)
 	if err != nil {
@@ -67,7 +73,7 @@ func (r *PostgreSQLUserRepository) ValidatePassword(username, password string) b
 	return err == nil
 }
 
-// Инициализация схемы БД
+// CreateTables initializes the repository schema
 func (r *PostgreSQLUserRepository) CreateTables() error {
 	query := `
     CREATE TABLE IF NOT EXISTS users (

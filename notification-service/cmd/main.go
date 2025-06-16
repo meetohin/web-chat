@@ -22,7 +22,7 @@ func main() {
 	// Connect to PostgreSQL
 	repo, err := repository.New(cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		log.Fatalf("Failed to connect to repository: %v", err)
 	}
 	defer repo.Close()
 
