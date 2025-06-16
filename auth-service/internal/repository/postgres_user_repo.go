@@ -20,7 +20,6 @@ func NewPostgreSQLUserRepository(db *sql.DB) UserRepository {
 
 // CreateUser creates a new user in the repository
 func (r *PostgreSQLUserRepository) CreateUser(username, password string) error {
-	// Check if user already exists
 	var exists bool
 	err := r.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)", username).Scan(&exists)
 	if err != nil {
@@ -30,13 +29,11 @@ func (r *PostgreSQLUserRepository) CreateUser(username, password string) error {
 		return errors.New("user already exists")
 	}
 
-	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
 
-	// Insert user
 	_, err = r.db.Exec(
 		"INSERT INTO users (username, password, created_at) VALUES ($1, $2, NOW())",
 		username, string(hashedPassword),

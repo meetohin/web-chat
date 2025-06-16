@@ -56,7 +56,6 @@ func main() {
 
 	// Create tables if not exist
 	if postgresRepo, ok := messageRepo.(*repository.PostgreSQLMessageRepository); ok {
-		// Type assertion to access CreateTables method
 		type tableCreator interface {
 			CreateTables() error
 		}
