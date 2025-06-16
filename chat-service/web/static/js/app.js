@@ -5,6 +5,8 @@ class ChatApp {
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
         this.reconnectDelay = 1000;
+        this.notifications = [];
+        this.unreadCount = 0;
         this.init();
     }
 
@@ -36,6 +38,26 @@ class ChatApp {
                 this.sendMessage();
             }
         });
+
+        // Notification panel toggle
+        document.getElementById('notificationToggle').addEventListener('click', () => {
+            this.toggleNotificationPanel();
+        });
+
+        // Mark all notifications as read
+        document.getElementById('markAllRead').addEventListener('click', () => {
+            this.markAllNotificationsRead();
+        });
+
+        // Close notification panel when clicking outside
+        document.addEventListener('click', (e) => {
+            const panel = document.getElementById('notificationPanel');
+            const toggle = document.getElementById('notificationToggle');
+
+            if (!panel.contains(e.target) && !toggle.contains(e.target)) {
+                this.hideNotificationPanel();
+            }
+        });
     }
 
     connectWebSocket() {
@@ -52,8 +74,15 @@ class ChatApp {
 
         this.ws.onmessage = (event) => {
             try {
-                const message = JSON.parse(event.data);
-                this.displayMessage(message);
+                const data = JSON.parse(event.data);
+
+                // Проверяем, является ли это уведомлением
+                if (data.type === 'notification') {
+                    this.handleNotification(data.data);
+                } else {
+                    // Обычное сообщение чата
+                    this.displayMessage(data);
+                }
             } catch (error) {
                 console.error('Failed to parse message:', error);
             }
@@ -72,6 +101,132 @@ class ChatApp {
             console.error('WebSocket error:', error);
             this.updateConnectionStatus(false);
         };
+    }
+
+    handleNotification(notification) {
+        // Добавляем уведомление в список
+        this.notifications.unshift(notification);
+
+        // Ограничиваем количество уведомлений в памяти
+        if (this.notifications.length > 50) {
+            this.notifications = this.notifications.slice(0, 50);
+        }
+
+        // Увеличиваем счетчик непрочитанных
+        this.unreadCount++;
+        this.updateNotificationBadge();
+
+        // Обновляем список уведомлений
+        this.updateNotificationList();
+
+        // Показываем браузерное уведомление, если разрешено
+        this.showBrowserNotification(notification);
+
+        console.log('Received notification:', notification);
+    }
+
+    showBrowserNotification(notification) {
+        if (Notification.permission === 'granted') {
+            const browserNotification = new Notification(notification.title, {
+                body: notification.message,
+                icon: '/static/favicon.ico' // добавьте фавикон если есть
+            });
+
+            // Автоматически закрываем через 5 секунд
+            setTimeout(() => {
+                browserNotification.close();
+            }, 5000);
+        } else if (Notification.permission !== 'denied') {
+            // Запрашиваем разрешение
+            Notification.requestPermission().then(permission => {
+                if (permission === 'granted') {
+                    this.showBrowserNotification(notification);
+                }
+            });
+        }
+    }
+
+    updateNotificationBadge() {
+        const badge = document.getElementById('notificationBadge');
+        if (this.unreadCount > 0) {
+            badge.textContent = this.unreadCount > 99 ? '99+' : this.unreadCount;
+            badge.classList.add('show');
+        } else {
+            badge.classList.remove('show');
+        }
+    }
+
+    updateNotificationList() {
+        const list = document.getElementById('notificationList');
+
+        if (this.notifications.length === 0) {
+            list.innerHTML = '<div class="no-notifications">No notifications yet</div>';
+            return;
+        }
+
+        const notificationsHTML = this.notifications.map(notification => {
+            const timeAgo = this.getTimeAgo(new Date(notification.created_at));
+            return `
+                <div class="notification-item unread" data-id="${notification.id}">
+                    <div class="notification-title">${this.escapeHtml(notification.title)}</div>
+                    <div class="notification-message">${this.escapeHtml(notification.message)}</div>
+                    <div class="notification-time">${timeAgo}</div>
+                </div>
+            `;
+        }).join('');
+
+        list.innerHTML = notificationsHTML;
+
+        // Добавляем обработчики кликов на уведомления
+        list.querySelectorAll('.notification-item').forEach(item => {
+            item.addEventListener('click', () => {
+                this.markNotificationAsRead(item);
+            });
+        });
+    }
+
+    markNotificationAsRead(notificationElement) {
+        if (notificationElement.classList.contains('unread')) {
+            notificationElement.classList.remove('unread');
+            this.unreadCount = Math.max(0, this.unreadCount - 1);
+            this.updateNotificationBadge();
+        }
+    }
+
+    markAllNotificationsRead() {
+        const unreadItems = document.querySelectorAll('.notification-item.unread');
+        unreadItems.forEach(item => {
+            item.classList.remove('unread');
+        });
+
+        this.unreadCount = 0;
+        this.updateNotificationBadge();
+    }
+
+    toggleNotificationPanel() {
+        const panel = document.getElementById('notificationPanel');
+        panel.classList.toggle('show');
+
+        if (panel.classList.contains('show')) {
+            this.updateNotificationList();
+        }
+    }
+
+    hideNotificationPanel() {
+        const panel = document.getElementById('notificationPanel');
+        panel.classList.remove('show');
+    }
+
+    getTimeAgo(date) {
+        const now = new Date();
+        const diff = Math.floor((now - date) / 1000);
+
+        if (diff < 60) return 'Just now';
+        if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+        if (diff < 2592000) return `${Math.floor(diff / 86400)}d ago`;
+
+        return date.toLocaleDateString();
     }
 
     handleReconnect() {
@@ -189,5 +344,10 @@ class ChatApp {
 
 // Initialize the chat application when the page loads
 document.addEventListener('DOMContentLoaded', () => {
+    // Запрашиваем разрешение на уведомления при загрузке страницы
+    if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
+
     new ChatApp();
 });

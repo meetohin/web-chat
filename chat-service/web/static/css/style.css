@@ -98,6 +98,12 @@ body {
     box-shadow: 0 5px 15px rgba(108, 117, 125, 0.3);
 }
 
+.btn-small {
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
 .auth-link {
     text-align: center;
     margin-top: 25px;
@@ -158,6 +164,7 @@ body {
     flex-direction: column;
     overflow: hidden;
     border: 1px solid rgba(255, 255, 255, 0.2);
+    position: relative;
 }
 
 .chat-header {
@@ -177,6 +184,151 @@ body {
 .user-count {
     font-size: 12px;
     opacity: 0.8;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+/* Notification Styles */
+.btn-notification {
+    position: relative;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    padding: 10px 15px;
+    border-radius: 50%;
+    min-width: auto;
+    width: 45px;
+    height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-notification:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.notification-icon {
+    font-size: 18px;
+}
+
+.notification-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #dc3545;
+    color: white;
+    font-size: 11px;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 10px;
+    min-width: 18px;
+    text-align: center;
+    display: none;
+}
+
+.notification-badge.show {
+    display: block;
+}
+
+.notification-panel {
+    position: absolute;
+    top: 100%;
+    right: 20px;
+    width: 350px;
+    max-height: 400px;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    display: none;
+    overflow: hidden;
+}
+
+.notification-panel.show {
+    display: block;
+    animation: slideDown 0.3s ease;
+}
+
+.notification-header {
+    padding: 15px 20px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.notification-header h3 {
+    color: #333;
+    font-size: 16px;
+    margin: 0;
+}
+
+.notification-list {
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.no-notifications {
+    padding: 40px 20px;
+    text-align: center;
+    color: #666;
+    font-style: italic;
+}
+
+.notification-item {
+    padding: 15px 20px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    position: relative;
+}
+
+.notification-item:last-child {
+    border-bottom: none;
+}
+
+.notification-item:hover {
+    background-color: #f8f9fa;
+}
+
+.notification-item.unread {
+    background-color: rgba(102, 126, 234, 0.05);
+    border-left: 3px solid #667eea;
+}
+
+.notification-item.unread::after {
+    content: '';
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    width: 8px;
+    height: 8px;
+    background: #667eea;
+    border-radius: 50%;
+}
+
+.notification-title {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 5px;
+    font-size: 14px;
+}
+
+.notification-message {
+    color: #666;
+    font-size: 13px;
+    line-height: 1.4;
+    margin-bottom: 5px;
+}
+
+.notification-time {
+    color: #999;
+    font-size: 11px;
 }
 
 .chat-messages {
@@ -263,22 +415,57 @@ body {
 }
 
 /* Scrollbar Styling */
-.chat-messages::-webkit-scrollbar {
+.chat-messages::-webkit-scrollbar,
+.notification-list::-webkit-scrollbar {
     width: 6px;
 }
 
-.chat-messages::-webkit-scrollbar-track {
+.chat-messages::-webkit-scrollbar-track,
+.notification-list::-webkit-scrollbar-track {
     background: rgba(0, 0, 0, 0.1);
     border-radius: 3px;
 }
 
-.chat-messages::-webkit-scrollbar-thumb {
+.chat-messages::-webkit-scrollbar-thumb,
+.notification-list::-webkit-scrollbar-thumb {
     background: rgba(102, 126, 234, 0.3);
     border-radius: 3px;
 }
 
-.chat-messages::-webkit-scrollbar-thumb:hover {
+.chat-messages::-webkit-scrollbar-thumb:hover,
+.notification-list::-webkit-scrollbar-thumb:hover {
     background: rgba(102, 126, 234, 0.5);
+}
+
+/* Animations */
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.message {
+    animation: fadeIn 0.3s ease;
+}
+
+.notification-item {
+    animation: fadeIn 0.3s ease;
 }
 
 /* Responsive Design */
@@ -299,6 +486,16 @@ body {
 
     .chat-header h1 {
         font-size: 20px;
+    }
+
+    .header-actions {
+        gap: 5px;
+    }
+
+    .notification-panel {
+        right: 10px;
+        width: calc(100vw - 40px);
+        max-width: 350px;
     }
 
     .chat-input form {
@@ -324,20 +521,9 @@ body {
     .container {
         padding: 10px;
     }
-}
 
-/* Animation */
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
+    .notification-panel {
+        right: 5px;
+        width: calc(100vw - 30px);
     }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.message {
-    animation: fadeIn 0.3s ease;
 }
