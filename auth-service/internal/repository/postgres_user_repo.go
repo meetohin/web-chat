@@ -8,19 +8,17 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type User struct {
-	Username string
-	Password string // hashed
-}
-
+// PostgreSQLUserRepository implements UserRepository interface
 type PostgreSQLUserRepository struct {
 	db *sql.DB
 }
 
-func NewPostgreSQLUserRepository(db *sql.DB) *PostgreSQLUserRepository {
+// NewPostgreSQLUserRepository creates a new PostgreSQL user repository
+func NewPostgreSQLUserRepository(db *sql.DB) UserRepository {
 	return &PostgreSQLUserRepository{db: db}
 }
 
+// CreateUser creates a new user in the repository
 func (r *PostgreSQLUserRepository) CreateUser(username, password string) error {
 	// Check if user already exists
 	var exists bool
@@ -46,6 +44,7 @@ func (r *PostgreSQLUserRepository) CreateUser(username, password string) error {
 	return err
 }
 
+// GetUser retrieves a user by username
 func (r *PostgreSQLUserRepository) GetUser(username string) (*User, error) {
 	user := &User{}
 	err := r.db.QueryRow(
@@ -63,6 +62,7 @@ func (r *PostgreSQLUserRepository) GetUser(username string) (*User, error) {
 	return user, nil
 }
 
+// ValidatePassword validates a user's password
 func (r *PostgreSQLUserRepository) ValidatePassword(username, password string) bool {
 	user, err := r.GetUser(username)
 	if err != nil {
@@ -73,7 +73,7 @@ func (r *PostgreSQLUserRepository) ValidatePassword(username, password string) b
 	return err == nil
 }
 
-// Initialize database schema
+// CreateTables initializes the repository schema
 func (r *PostgreSQLUserRepository) CreateTables() error {
 	query := `
     CREATE TABLE IF NOT EXISTS users (
