@@ -82,6 +82,8 @@ services:
     depends_on:
       auth-service:
         condition: service_healthy
+      notification-service:
+        condition: service_healthy
       postgres:
         condition: service_healthy
       redis:
