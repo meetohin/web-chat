@@ -13,7 +13,13 @@
             <h1>Chat Room</h1>
             <span id="userCount" class="user-count">0 users online</span>
         </div>
-        <button id="logout" class="btn btn-secondary">Logout</button>
+        <div class="header-actions">
+            <button id="notificationToggle" class="btn btn-notification">
+                <span class="notification-icon">🔔</span>
+                <span id="notificationBadge" class="notification-badge">0</span>
+            </button>
+            <button id="logout" class="btn btn-secondary">Logout</button>
+        </div>
     </div>
 
     <div class="chat-messages" id="messages">
