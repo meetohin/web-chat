@@ -22,9 +22,15 @@ func main() {
 	// Connect to PostgreSQL
 	repo, err := repository.New(cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("Failed to connect to repository: %v", err)
+		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	defer repo.Close()
+
+	// Run database migrations
+	if err := repo.Migrate(); err != nil {
+		log.Fatalf("Failed to run database migrations: %v", err)
+	}
+	log.Println("Database migrations completed successfully")
 
 	// Connect to Redis
 	redisClient, err := redis.New(cfg.RedisURL)

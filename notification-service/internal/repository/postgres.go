@@ -31,6 +31,27 @@ func (r *Repository) Close() error {
 	return r.db.Close()
 }
 
+// Migrate runs database migrations
+func (r *Repository) Migrate() error {
+	query := `
+	CREATE TABLE IF NOT EXISTS notifications (
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		user_id VARCHAR(255) NOT NULL,
+		title VARCHAR(255) NOT NULL,
+		message TEXT NOT NULL,
+		type VARCHAR(50) NOT NULL DEFAULT 'message',
+		is_read BOOLEAN DEFAULT FALSE,
+		created_at TIMESTAMP DEFAULT NOW()
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
+	CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(user_id, is_read) WHERE is_read = FALSE;
+	`
+
+	_, err := r.db.Exec(query)
+	return err
+}
+
 func (r *Repository) CreateNotification(ctx context.Context, req *model.NotificationRequest) (*model.Notification, error) {
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
